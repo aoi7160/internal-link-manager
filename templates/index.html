@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内部リンク管理ツール - W2 Solution</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/dist/vis-network.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark px-3">
+  <span class="navbar-brand fw-bold">
+    <i class="bi bi-diagram-3-fill me-2 text-primary"></i>内部リンク管理ツール
+  </span>
+  <div class="d-flex align-items-center gap-2">
+    <span id="apiKeyStatus" class="badge bg-danger">API Key 未設定</span>
+    <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#settingsModal">
+      <i class="bi bi-gear"></i> 設定
+    </button>
+  </div>
+</nav>
+
+<div class="container-fluid mt-3">
+  <ul class="nav nav-tabs mb-3" id="mainTabs">
+    <li class="nav-item">
+      <a class="nav-link active" data-bs-toggle="tab" href="#tabArticles">
+        <i class="bi bi-file-text"></i> 記事管理
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#tabLinks">
+        <i class="bi bi-link-45deg"></i> リンク管理
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#tabGraph">
+        <i class="bi bi-diagram-3"></i> ネットワークグラフ
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#tabClusters">
+        <i class="bi bi-stars"></i> トピッククラスター
+      </a>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ═══ TAB: 記事管理 ═══ -->
+    <div class="tab-pane fade show active" id="tabArticles">
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="articleSearch" class="form-control form-control-sm" placeholder="KW・URLで絞り込み..." style="width:260px">
+          <span id="articleCount" class="text-muted small"></span>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-success" onclick="openAddArticleModal()">
+            <i class="bi bi-plus-circle"></i> 記事追加
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="startCrawlAll()">
+            <i class="bi bi-cloud-download"></i> 全記事クロール
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover table-striped align-middle" id="articlesTable">
+          <thead class="table-dark sticky-top">
+            <tr>
+              <th class="sortable" data-col="main_kw">メインKW <i class="bi bi-chevron-expand"></i></th>
+              <th class="sortable" data-col="url">URL <i class="bi bi-chevron-expand"></i></th>
+              <th class="sortable text-center" data-col="inbound_count">被内部リンク <i class="bi bi-chevron-expand"></i></th>
+              <th class="sortable text-center" data-col="outbound_count">発内部リンク <i class="bi bi-chevron-expand"></i></th>
+              <th class="text-center">クロール</th>
+              <th class="text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody id="articlesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: リンク管理 ═══ -->
+    <div class="tab-pane fade" id="tabLinks">
+
+      <!-- AI提案セクション -->
+      <div class="card mb-3 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+          <span><i class="bi bi-stars me-1"></i><strong>AIリンク提案</strong> — AIが追加すべき内部リンクを提案します</span>
+          <button class="btn btn-sm btn-light" onclick="runAILinkSuggest()">
+            <i class="bi bi-stars"></i> AIに提案させる
+          </button>
+        </div>
+        <div class="card-body p-2">
+          <div id="aiLinkProgress" class="alert alert-info py-2 d-none">
+            <div class="d-flex align-items-center gap-2">
+              <div class="spinner-border spinner-border-sm"></div>
+              <span>AIが内部リンク戦略を分析中... (1〜2分かかります)</span>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mb-2 align-items-center">
+            <input type="text" id="suggSearch" class="form-control form-control-sm" placeholder="KWで絞り込み..." style="width:240px">
+            <div class="form-check form-switch ms-2 mb-0">
+              <input class="form-check-input" type="checkbox" id="hideConfirmedSugg" checked>
+              <label class="form-check-label small" for="hideConfirmedSugg">未確認のみ表示</label>
+            </div>
+            <span id="suggCount" class="text-muted small ms-auto"></span>
+          </div>
+          <div class="table-responsive" style="max-height:320px;overflow-y:auto">
+            <table class="table table-sm table-hover align-middle mb-0" id="suggTable">
+              <thead class="table-dark sticky-top">
+                <tr>
+                  <th>リンク元 KW</th>
+                  <th>リンク先 KW</th>
+                  <th>推奨アンカーテキスト</th>
+                  <th>理由</th>
+                  <th class="text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="suggBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 確定リンク一覧 -->
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <div class="d-flex gap-2">
+          <input type="text" id="linkSearch" class="form-control form-control-sm" placeholder="KW・URLで絞り込み..." style="width:260px">
+          <span id="linkCount" class="text-muted small mt-1"></span>
+        </div>
+        <button class="btn btn-sm btn-success" onclick="openAddLinkModal()">
+          <i class="bi bi-plus-circle"></i> リンク手動追加
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover table-striped align-middle" id="linksTable">
+          <thead class="table-dark sticky-top">
+            <tr>
+              <th>発リンク元 KW</th>
+              <th>発リンク元 URL</th>
+              <th>リンク先 KW</th>
+              <th>リンク先 URL</th>
+              <th>アンカーテキスト</th>
+              <th class="text-center">削除</th>
+            </tr>
+          </thead>
+          <tbody id="linksBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ TAB: グラフ ═══ -->
+    <div class="tab-pane fade" id="tabGraph">
+      <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="showLinksToggle" checked>
+          <label class="form-check-label" for="showLinksToggle">内部リンク表示</label>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="showClustersToggle" checked>
+          <label class="form-check-label" for="showClustersToggle">クラスター関係表示</label>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="isolatedToggle">
+          <label class="form-check-label" for="isolatedToggle">孤立ノードを非表示</label>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="renderGraph()">
+          <i class="bi bi-arrow-clockwise"></i> 再描画
+        </button>
+        <span class="text-muted small ms-auto" id="graphStats"></span>
+      </div>
+      <div id="graphContainer"></div>
+      <div id="graphTooltip" class="graph-tooltip d-none"></div>
+    </div>
+
+    <!-- ═══ TAB: クラスター ═══ -->
+    <div class="tab-pane fade" id="tabClusters">
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="clusterSearch" class="form-control form-control-sm" placeholder="KWで絞り込み..." style="width:260px">
+          <div class="form-check form-switch ms-2">
+            <input class="form-check-input" type="checkbox" id="showUnconfirmed" checked>
+            <label class="form-check-label" for="showUnconfirmed">未確認AIのみ</label>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-primary" onclick="runAISuggest()">
+            <i class="bi bi-stars"></i> AI親子関係を提案
+          </button>
+          <button class="btn btn-sm btn-success" onclick="openAddClusterModal()">
+            <i class="bi bi-plus-circle"></i> 手動追加
+          </button>
+        </div>
+      </div>
+
+      <div id="aiSuggestProgress" class="alert alert-info d-none">
+        <div class="d-flex align-items-center gap-2">
+          <div class="spinner-border spinner-border-sm"></div>
+          <span>AIが親子関係を分析中...</span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="clustersTable">
+          <thead class="table-dark sticky-top">
+            <tr>
+              <th>親記事 KW</th>
+              <th>子記事 KW</th>
+              <th>理由</th>
+              <th class="text-center">AI提案</th>
+              <th class="text-center">確認済み</th>
+              <th class="text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody id="clustersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- 設定 -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">設定</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label class="form-label fw-semibold">Anthropic API Key</label>
+        <input type="password" class="form-control" id="apiKeyInput" placeholder="sk-ant-...">
+        <div class="form-text">AIトピッククラスター機能に使用します。キーはサーバーメモリにのみ保存されます。</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 記事追加 -->
+<div class="modal fade" id="addArticleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="addArticleTitle">記事追加</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="editArticleId">
+        <div class="mb-3">
+          <label class="form-label">URL <span class="text-danger">*</span></label>
+          <input type="url" class="form-control" id="articleUrlInput" placeholder="https://...">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">メインKW</label>
+          <input type="text" class="form-control" id="articleKwInput" placeholder="例: ネットショップ開業">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">タイトル（任意）</label>
+          <input type="text" class="form-control" id="articleTitleInput">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveArticle()">保存</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- リンク追加 -->
+<div class="modal fade" id="addLinkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">リンク追加</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">発リンク元記事 <span class="text-danger">*</span></label>
+          <select class="form-select" id="linkFromSelect"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">リンク先記事 <span class="text-danger">*</span></label>
+          <select class="form-select" id="linkToSelect"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">アンカーテキスト</label>
+          <input type="text" class="form-control" id="linkAnchorInput">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveLink()">保存</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- クラスター追加 -->
+<div class="modal fade" id="addClusterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">親子関係を手動追加</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">親記事（広いトピック） <span class="text-danger">*</span></label>
+          <select class="form-select" id="clusterParentSelect"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">子記事（詳細・下位トピック） <span class="text-danger">*</span></label>
+          <select class="form-select" id="clusterChildSelect"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">理由</label>
+          <input type="text" class="form-control" id="clusterReasonInput" placeholder="例: サプリ記事の下位カテゴリ">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveCluster()">保存</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 記事詳細ドロワー -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="articleDrawer" style="width:500px">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="drawerTitle">記事詳細</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body" id="drawerBody"></div>
+</div>
+
+<div id="toast-container" class="position-fixed bottom-0 end-0 p-3" style="z-index:9999"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/url-label.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

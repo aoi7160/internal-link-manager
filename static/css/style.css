@@ -1,0 +1,115 @@
+body {
+  background: #f4f6fa;
+  font-size: 0.875rem;
+}
+
+/* ── Table ── */
+#articlesTable th, #linksTable th, #clustersTable th {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { background: rgba(255,255,255,0.1); }
+
+td.kw-cell {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+td.url-cell {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+td.url-cell a {
+  font-size: 0.78rem;
+  color: #6c757d;
+}
+
+.badge-inbound  { background: #0d6efd; }
+.badge-outbound { background: #198754; }
+
+.inbound-count, .outbound-count {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.count-zero { color: #dc3545; }
+.count-low  { color: #fd7e14; }
+.count-good { color: #198754; }
+
+/* ── Graph ── */
+#graphContainer {
+  width: 100%;
+  height: calc(100vh - 200px);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #ffffff;
+  position: relative;
+}
+
+.graph-tooltip {
+  position: fixed;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 9000;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ── Cluster table ── */
+.cluster-row-ai { background: #fffbf0; }
+.cluster-row-confirmed { background: #f0fff4; }
+
+.badge-ai { background: #6f42c1; }
+.badge-confirmed { background: #198754; }
+.badge-pending { background: #fd7e14; }
+
+/* ── Misc ── */
+.nav-tabs .nav-link { font-weight: 500; }
+.sticky-top { top: 0; z-index: 1; }
+
+.crawl-indicator {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+.crawl-indicator.crawled { color: #198754; }
+
+.toast { font-size: 0.85rem; }
+
+/* ── Drawer ── */
+.link-section h6 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6c757d;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.link-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.82rem;
+}
+
+.link-item:last-child { border-bottom: none; }
+
+.link-item .kw { font-weight: 600; min-width: 130px; }
+.link-item .anchor { color: #6c757d; font-size: 0.75rem; }
