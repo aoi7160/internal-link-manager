@@ -3,7 +3,7 @@ import json
 import anthropic
 import database as db
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-sonnet-4-6"
 
 
 def suggest_links(article_ids: list[int] | None = None) -> list[dict]:

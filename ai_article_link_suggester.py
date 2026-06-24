@@ -3,7 +3,7 @@ import json
 import anthropic
 import database as db
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-sonnet-4-6"
 
 
 def get_target_link_range(char_count: int) -> tuple[int, int]:
