@@ -1,9 +1,5 @@
-import os
-import json
-import anthropic
 import database as db
-
-MODEL = "claude-sonnet-4-6"
+import ai_client
 
 
 def get_target_link_range(char_count: int) -> tuple[int, int]:
@@ -16,16 +12,6 @@ def get_target_link_range(char_count: int) -> tuple[int, int]:
 
 
 def suggest_article_links(title: str, body: str) -> dict:
-    """
-    記事タイトルと本文を受け取り、挿入すべき内部リンクと
-    そのまま使える紹介文を提案する。DBへの保存は行わない。
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY が設定されていません")
-
-    client = anthropic.Anthropic(api_key=api_key)
-
     char_count = len(body)
     min_links, max_links = get_target_link_range(char_count)
     target_range = f"{min_links}〜{max_links}"
@@ -121,20 +107,7 @@ JSON形式で返してください：
 
 JSONのみ返し、説明文は不要です。"""
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=8192,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    result = json.loads(raw)
+    result = ai_client.call_ai_json(prompt, max_tokens=8192)
 
     return {
         "char_count": char_count,
