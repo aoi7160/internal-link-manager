@@ -8,6 +8,7 @@ import database as db
 import crawler
 import ai_cluster
 import ai_links
+import ai_article_link_suggester
 
 app = Flask(__name__)
 CORS(app)
@@ -158,6 +159,22 @@ def ai_suggest():
     try:
         suggestions = ai_cluster.suggest_clusters(article_ids)
         return jsonify({"suggestions": suggestions, "count": len(suggestions)})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/api/ai/suggest-article-links")
+def ai_suggest_article_links():
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    body = data.get("body", "").strip()
+    if not body:
+        return jsonify({"error": "body is required"}), 400
+    try:
+        result = ai_article_link_suggester.suggest_article_links(title, body)
+        return jsonify(result)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

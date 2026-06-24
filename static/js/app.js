@@ -619,6 +619,102 @@ function shortUrl(url) {
   return m ? "/" + m[1] : url;
 }
 
+// ── 内部リンク提案タブ ──────────────────────────────────────────────────────────
+
+function updateCharCount() {
+  const body = document.getElementById("proposalBody").value;
+  const count = body.length;
+  document.getElementById("charCount").textContent = count.toLocaleString();
+
+  let range;
+  if (count <= 3000) range = "4〜6個";
+  else if (count <= 6500) range = "6〜8個";
+  else range = "10〜15個";
+
+  const badge = document.getElementById("targetRangeBadge");
+  if (count === 0) {
+    badge.textContent = "目標リンク数: 入力してください";
+    badge.className = "badge bg-secondary";
+  } else {
+    badge.textContent = `目標リンク数: ${range}（${count.toLocaleString()}文字）`;
+    badge.className = "badge bg-primary";
+  }
+}
+
+async function generateLinkProposals() {
+  const title = document.getElementById("proposalTitle").value.trim();
+  const body = document.getElementById("proposalBody").value.trim();
+  if (!body) { toast("本文を入力してください", "warning"); return; }
+
+  document.getElementById("proposalProgress").style.display = "";
+  document.getElementById("proposalResults").style.display = "none";
+  document.getElementById("proposalBtn").disabled = true;
+
+  try {
+    const data = await postJSON("/api/ai/suggest-article-links", { title, body });
+    if (data.error) { toast("エラー: " + data.error, "danger"); return; }
+    renderLinkProposalResults(data);
+  } catch (e) {
+    toast("通信エラー: " + e.message, "danger");
+  } finally {
+    document.getElementById("proposalProgress").style.display = "none";
+    document.getElementById("proposalBtn").disabled = false;
+  }
+}
+
+function renderLinkProposalResults(data) {
+  const { char_count, target_range, suggestions } = data;
+  document.getElementById("proposalSummary").textContent =
+    `${(char_count || 0).toLocaleString()}文字 ／ 目標 ${target_range}個 ／ 提案 ${suggestions.length}件`;
+
+  const cards = document.getElementById("proposalCards");
+  if (!suggestions.length) {
+    cards.innerHTML = '<div class="alert alert-warning">提案が見つかりませんでした。記事一覧にデータが登録されているか確認してください。</div>';
+    document.getElementById("proposalResults").style.display = "";
+    return;
+  }
+
+  cards.innerHTML = suggestions.map((s, i) => {
+    const priorityBadge = s.priority === "必須"
+      ? '<span class="badge bg-danger">必須</span>'
+      : '<span class="badge bg-primary">推奨</span>';
+    const escapedText = (s.formatted_text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const copyId = `copyText_${i}`;
+    return `
+      <div class="card mb-3 ${s.priority === "必須" ? "border-danger" : ""}">
+        <div class="card-body">
+          <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              ${priorityBadge}
+              <span class="badge bg-light text-dark border"><i class="bi bi-geo-alt"></i> ${s.placement || "本文中"}</span>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyProposalText('${copyId}')">
+              <i class="bi bi-clipboard"></i> コピー
+            </button>
+          </div>
+          <div class="mb-1">
+            <strong class="me-1">リンク先：</strong>
+            <a href="${s.url || "#"}" target="_blank" class="text-decoration-none">${s.title || s.url || "不明"}</a>
+          </div>
+          <div class="text-muted small mb-2"><i class="bi bi-info-circle"></i> ${s.reason || ""}</div>
+          <div class="bg-light rounded p-3 font-monospace small" style="white-space: pre-wrap;" id="${copyId}">${escapedText}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.getElementById("proposalResults").style.display = "";
+}
+
+function copyProposalText(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    toast("コピーしました", "success");
+  }).catch(() => {
+    toast("コピーに失敗しました", "danger");
+  });
+}
+
 function toast(msg, type = "secondary") {
   const c = document.getElementById("toast-container");
   const id = "t" + Date.now();
