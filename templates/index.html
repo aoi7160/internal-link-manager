@@ -161,6 +161,7 @@
 
     <!-- ═══ TAB: グラフ ═══ -->
     <div class="tab-pane fade" id="tabGraph">
+      <!-- トグル＆再描画 -->
       <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="showLinksToggle" checked>
@@ -179,6 +180,23 @@
         </button>
         <span class="text-muted small ms-auto" id="graphStats"></span>
       </div>
+
+      <!-- セグメント管理パネル -->
+      <div class="card mb-2">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-semibold small"><i class="bi bi-layers"></i> セグメント</span>
+            <div id="segmentChips" class="d-flex gap-2 flex-wrap"></div>
+            <button class="btn btn-sm btn-outline-primary" id="addSegmentBtn" onclick="openAddSegmentModal()">
+              <i class="bi bi-plus"></i> 追加
+            </button>
+            <button class="btn btn-sm btn-link text-muted p-0 ms-1" onclick="clearSegmentFilter()" id="clearSegmentBtn" style="display:none">
+              全表示に戻す
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div id="graphContainer"></div>
       <div id="graphTooltip" class="graph-tooltip d-none"></div>
     </div>
@@ -288,6 +306,43 @@
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="saveSettings()">保存</button>
         <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- セグメント追加 -->
+<div class="modal fade" id="addSegmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">セグメント追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">セグメント名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="segmentNameInput" placeholder="例：EC構築系、集客系">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">URLフィルター（含む文字列） <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="segmentUrlInput" placeholder="例：/ec-construction/ または 1001">
+          <div class="form-text">URLにこの文字列が含まれる記事をセグメントに含めます</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">カラー</label>
+          <div class="d-flex gap-2" id="segmentColorPicker">
+            <button type="button" class="segment-color-btn active" data-color="#0d6efd" style="background:#0d6efd;width:28px;height:28px;border-radius:50%;border:3px solid #333"></button>
+            <button type="button" class="segment-color-btn" data-color="#198754" style="background:#198754;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#fd7e14" style="background:#fd7e14;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#6f42c1" style="background:#6f42c1;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#dc3545" style="background:#dc3545;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="saveSegment()">追加</button>
       </div>
     </div>
   </div>

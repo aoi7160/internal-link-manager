@@ -12,10 +12,17 @@ let graphData = null;
 let network  = null;
 let sortState = { col: "main_kw", dir: 1 };
 
+// ─── Segments ────────────────────────────────
+const SEGMENT_MAX = 5;
+const SEGMENT_COLORS = ["#0d6efd", "#198754", "#fd7e14", "#6f42c1", "#dc3545"];
+let segments = [];          // [{id, name, urlFilter, color, active}]
+let segmentSelectedColor = SEGMENT_COLORS[0];
+
 // ─── Init ────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
   await checkSettings();
   await loadAll();
+  loadSegments();
 
   document.getElementById("articleSearch").addEventListener("input", renderArticlesTable);
   document.getElementById("linkSearch").addEventListener("input", renderLinksTable);
@@ -463,6 +470,128 @@ async function deleteCluster(id) {
   await loadAll();
 }
 
+// ─── Segment Management ──────────────────────
+
+function loadSegments() {
+  try {
+    segments = JSON.parse(localStorage.getItem("graphSegments") || "[]");
+  } catch { segments = []; }
+  renderSegmentChips();
+}
+
+function saveSegmentsToStorage() {
+  localStorage.setItem("graphSegments", JSON.stringify(segments));
+}
+
+function openAddSegmentModal() {
+  if (segments.length >= SEGMENT_MAX) {
+    toast(`セグメントは最大${SEGMENT_MAX}つまでです`, "warning");
+    return;
+  }
+  document.getElementById("segmentNameInput").value = "";
+  document.getElementById("segmentUrlInput").value = "";
+  // Reset color picker – pick a color not yet used
+  const usedColors = segments.map(s => s.color);
+  const nextColor = SEGMENT_COLORS.find(c => !usedColors.includes(c)) || SEGMENT_COLORS[0];
+  segmentSelectedColor = nextColor;
+  document.querySelectorAll(".segment-color-btn").forEach(btn => {
+    const isActive = btn.dataset.color === nextColor;
+    btn.style.border = isActive ? "3px solid #333" : "2px solid transparent";
+    btn.classList.toggle("active", isActive);
+  });
+  new bootstrap.Modal(document.getElementById("addSegmentModal")).show();
+}
+
+// Color picker click handler
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".segment-color-btn");
+  if (!btn) return;
+  segmentSelectedColor = btn.dataset.color;
+  document.querySelectorAll(".segment-color-btn").forEach(b => {
+    b.style.border = b === btn ? "3px solid #333" : "2px solid transparent";
+  });
+});
+
+function saveSegment() {
+  const name = document.getElementById("segmentNameInput").value.trim();
+  const urlFilter = document.getElementById("segmentUrlInput").value.trim();
+  if (!name || !urlFilter) { toast("名前とURLフィルターは必須です", "warning"); return; }
+
+  segments.push({
+    id: Date.now(),
+    name,
+    urlFilter,
+    color: segmentSelectedColor,
+    active: false,
+  });
+  saveSegmentsToStorage();
+  renderSegmentChips();
+  bootstrap.Modal.getInstance(document.getElementById("addSegmentModal")).hide();
+
+  if (document.getElementById("tabGraph").classList.contains("active")) renderGraph();
+}
+
+function toggleSegment(id) {
+  const seg = segments.find(s => s.id === id);
+  if (!seg) return;
+  seg.active = !seg.active;
+  saveSegmentsToStorage();
+  renderSegmentChips();
+  if (document.getElementById("tabGraph").classList.contains("active")) renderGraph();
+}
+
+function deleteSegment(id) {
+  segments = segments.filter(s => s.id !== id);
+  saveSegmentsToStorage();
+  renderSegmentChips();
+  if (document.getElementById("tabGraph").classList.contains("active")) renderGraph();
+}
+
+function clearSegmentFilter() {
+  segments.forEach(s => s.active = false);
+  saveSegmentsToStorage();
+  renderSegmentChips();
+  if (document.getElementById("tabGraph").classList.contains("active")) renderGraph();
+}
+
+function renderSegmentChips() {
+  const container = document.getElementById("segmentChips");
+  const clearBtn  = document.getElementById("clearSegmentBtn");
+  const addBtn    = document.getElementById("addSegmentBtn");
+
+  const anyActive = segments.some(s => s.active);
+  clearBtn.style.display = anyActive ? "" : "none";
+  addBtn.style.display   = segments.length >= SEGMENT_MAX ? "none" : "";
+
+  if (!segments.length) {
+    container.innerHTML = '<span class="text-muted small">セグメントなし（最大5つ追加できます）</span>';
+    return;
+  }
+
+  container.innerHTML = segments.map(seg => `
+    <div class="d-inline-flex align-items-center gap-1 rounded-pill px-2 py-1"
+         style="background:${seg.active ? seg.color : "#e9ecef"};
+                color:${seg.active ? "#fff" : "#555"};
+                cursor:pointer;font-size:.8rem;border:2px solid ${seg.color}"
+         onclick="toggleSegment(${seg.id})"
+         title="クリックでフィルター切替">
+      <span class="rounded-circle d-inline-block" style="width:8px;height:8px;background:${seg.active ? '#fff' : seg.color}"></span>
+      ${esc(seg.name)}
+      <button type="button"
+              onclick="event.stopPropagation();deleteSegment(${seg.id})"
+              style="background:none;border:none;padding:0 0 0 4px;color:inherit;font-size:.75rem;line-height:1;cursor:pointer"
+              title="削除">✕</button>
+    </div>`).join("");
+}
+
+/** URLがアクティブなセグメントのどれかにマッチするか。アクティブセグメントがなければ全件表示 */
+function getNodeColorBySegment(url) {
+  const activeSegs = segments.filter(s => s.active);
+  if (!activeSegs.length) return null;   // null = デフォルト色を使う
+  const match = activeSegs.find(s => url.includes(s.urlFilter));
+  return match ? match.color : "#e0e0e0"; // マッチしないノードはグレー
+}
+
 // ─── Graph ───────────────────────────────────
 async function renderGraph() {
   graphData = await fetchJSON("/api/graph");
@@ -480,49 +609,65 @@ async function renderGraph() {
     graphData.cluster_edges.forEach(e => { connectedIds.add(e.from); connectedIds.add(e.to); });
   }
 
-  const nodeList = hideIsolated
+  // アクティブセグメントでノードを絞り込む
+  const activeSegs = segments.filter(s => s.active);
+  let baseNodeList = hideIsolated
     ? graphData.nodes.filter(n => connectedIds.has(n.id))
     : graphData.nodes;
 
+  if (activeSegs.length) {
+    baseNodeList = baseNodeList.filter(n =>
+      activeSegs.some(s => n.url && n.url.includes(s.urlFilter))
+    );
+  }
+
+  const nodeList = baseNodeList;
   const maxIn  = Math.max(...nodeList.map(n => n.inbound),  1);
   const maxOut = Math.max(...nodeList.map(n => n.outbound), 1);
 
+  const visibleIds = new Set(nodeList.map(n => n.id));
+
   const nodes = new vis.DataSet(nodeList.map(n => {
     const size = 10 + (n.inbound / maxIn) * 30;
+    const segColor = getNodeColorBySegment(n.url || "");
     return {
       id: n.id,
       label: n.label,
       title: `${n.label}\n被リンク: ${n.inbound}  発リンク: ${n.outbound}\n${shortUrl(n.url)}`,
       size,
       color: {
-        background: inboundColor(n.inbound, maxIn),
-        border: "#666",
+        background: segColor || inboundColor(n.inbound, maxIn),
+        border: segColor ? darkenColor(segColor) : "#666",
         highlight: { background: "#ffd700", border: "#333" },
       },
-      font: { size: 11 },
+      font: { size: 11, color: "#333" },
     };
   }));
 
   const edgeList = [];
   if (showLinks) {
-    graphData.edges.forEach(e => edgeList.push({
-      from: e.from, to: e.to,
-      arrows: "to",
-      color: { color: "#0d6efd", opacity: 0.5 },
-      width: 1,
-      title: e.label || "",
-      dashes: false,
-    }));
+    graphData.edges
+      .filter(e => visibleIds.has(e.from) && visibleIds.has(e.to))
+      .forEach(e => edgeList.push({
+        from: e.from, to: e.to,
+        arrows: "to",
+        color: { color: "#0d6efd", opacity: 0.5 },
+        width: 1,
+        title: e.label || "",
+        dashes: false,
+      }));
   }
   if (showClusters) {
-    graphData.cluster_edges.forEach(e => edgeList.push({
-      from: e.from, to: e.to,
-      arrows: "to",
-      color: { color: e.confirmed ? "#198754" : "#fd7e14", opacity: 0.8 },
-      width: 2,
-      dashes: !e.confirmed,
-      title: e.confirmed ? "クラスター（確認済）" : "クラスター（未確認）",
-    }));
+    graphData.cluster_edges
+      .filter(e => visibleIds.has(e.from) && visibleIds.has(e.to))
+      .forEach(e => edgeList.push({
+        from: e.from, to: e.to,
+        arrows: "to",
+        color: { color: e.confirmed ? "#198754" : "#fd7e14", opacity: 0.8 },
+        width: 2,
+        dashes: !e.confirmed,
+        title: e.confirmed ? "クラスター（確認済）" : "クラスター（未確認）",
+      }));
   }
   const edges = new vis.DataSet(edgeList);
 
@@ -555,6 +700,15 @@ function inboundColor(n, max) {
   if (n < max * 0.5)  return "#6ea8fe";
   if (n < max * 0.75) return "#0d6efd";
   return "#084298";
+}
+
+function darkenColor(hex) {
+  // hex を少し暗くしてボーダー色に使う
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = Math.max(0, (n >> 16) - 40);
+  const g = Math.max(0, ((n >> 8) & 0xff) - 40);
+  const b = Math.max(0, (n & 0xff) - 40);
+  return `rgb(${r},${g},${b})`;
 }
 
 document.querySelectorAll("#showLinksToggle, #showClustersToggle, #isolatedToggle").forEach(el => {
