@@ -490,6 +490,7 @@ function openAddSegmentModal() {
   }
   document.getElementById("segmentNameInput").value = "";
   document.getElementById("segmentUrlInput").value = "";
+  document.getElementById("segmentKwInput").value = "";
   // Reset color picker – pick a color not yet used
   const usedColors = segments.map(s => s.color);
   const nextColor = SEGMENT_COLORS.find(c => !usedColors.includes(c)) || SEGMENT_COLORS[0];
@@ -515,12 +516,15 @@ document.addEventListener("click", e => {
 function saveSegment() {
   const name = document.getElementById("segmentNameInput").value.trim();
   const urlFilter = document.getElementById("segmentUrlInput").value.trim();
-  if (!name || !urlFilter) { toast("名前とURLフィルターは必須です", "warning"); return; }
+  const kwFilter  = document.getElementById("segmentKwInput").value.trim();
+  if (!name) { toast("セグメント名は必須です", "warning"); return; }
+  if (!urlFilter && !kwFilter) { toast("URLフィルターかKWフィルターのどちらかを入力してください", "warning"); return; }
 
   segments.push({
     id: Date.now(),
     name,
     urlFilter,
+    kwFilter,
     color: segmentSelectedColor,
     active: false,
   });
@@ -568,28 +572,40 @@ function renderSegmentChips() {
     return;
   }
 
-  container.innerHTML = segments.map(seg => `
+  container.innerHTML = segments.map(seg => {
+    const tipParts = [];
+    if (seg.urlFilter) tipParts.push(`URL含む:${seg.urlFilter}`);
+    if (seg.kwFilter)  tipParts.push(`KW含む:${seg.kwFilter}`);
+    const tip = tipParts.join(" OR ") || "";
+    return `
     <div class="d-inline-flex align-items-center gap-1 rounded-pill px-2 py-1"
          style="background:${seg.active ? seg.color : "#e9ecef"};
                 color:${seg.active ? "#fff" : "#555"};
                 cursor:pointer;font-size:.8rem;border:2px solid ${seg.color}"
          onclick="toggleSegment(${seg.id})"
-         title="クリックでフィルター切替">
+         title="${esc(tip)}\nクリックでフィルター切替">
       <span class="rounded-circle d-inline-block" style="width:8px;height:8px;background:${seg.active ? '#fff' : seg.color}"></span>
       ${esc(seg.name)}
       <button type="button"
               onclick="event.stopPropagation();deleteSegment(${seg.id})"
               style="background:none;border:none;padding:0 0 0 4px;color:inherit;font-size:.75rem;line-height:1;cursor:pointer"
               title="削除">✕</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
-/** URLがアクティブなセグメントのどれかにマッチするか。アクティブセグメントがなければ全件表示 */
-function getNodeColorBySegment(url) {
+/** URLまたはKWがアクティブなセグメントのどれかにマッチするか（OR条件）*/
+function nodeMatchesSegment(seg, url, label) {
+  const urlHit = seg.urlFilter && url.includes(seg.urlFilter);
+  const kwHit  = seg.kwFilter  && label.toLowerCase().includes(seg.kwFilter.toLowerCase());
+  return urlHit || kwHit;
+}
+
+function getNodeColorBySegment(url, label) {
   const activeSegs = segments.filter(s => s.active);
   if (!activeSegs.length) return null;   // null = デフォルト色を使う
-  const match = activeSegs.find(s => url.includes(s.urlFilter));
-  return match ? match.color : "#e0e0e0"; // マッチしないノードはグレー
+  const match = activeSegs.find(s => nodeMatchesSegment(s, url, label));
+  return match ? match.color : "#d0d0d0"; // マッチしないノードはグレー
 }
 
 // ─── Graph ───────────────────────────────────
@@ -617,7 +633,7 @@ async function renderGraph() {
 
   if (activeSegs.length) {
     baseNodeList = baseNodeList.filter(n =>
-      activeSegs.some(s => n.url && n.url.includes(s.urlFilter))
+      activeSegs.some(s => nodeMatchesSegment(s, n.url || "", n.label || ""))
     );
   }
 
@@ -629,7 +645,7 @@ async function renderGraph() {
 
   const nodes = new vis.DataSet(nodeList.map(n => {
     const size = 10 + (n.inbound / maxIn) * 30;
-    const segColor = getNodeColorBySegment(n.url || "");
+    const segColor = getNodeColorBySegment(n.url || "", n.label || "");
     return {
       id: n.id,
       label: n.label,

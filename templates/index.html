@@ -325,10 +325,16 @@
           <input type="text" class="form-control" id="segmentNameInput" placeholder="例：EC構築系、集客系">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">URLフィルター（含む文字列） <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="segmentUrlInput" placeholder="例：/ec-construction/ または 1001">
+          <label class="form-label fw-semibold">URLフィルター（含む文字列）</label>
+          <input type="text" class="form-control" id="segmentUrlInput" placeholder="例：/ec-construction/">
           <div class="form-text">URLにこの文字列が含まれる記事をセグメントに含めます</div>
         </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">メインKWフィルター（含む文字列）</label>
+          <input type="text" class="form-control" id="segmentKwInput" placeholder="例：EC、D2C、SEO">
+          <div class="form-text">メインキーワードにこの文字列が含まれる記事をセグメントに含めます</div>
+        </div>
+        <div class="alert alert-secondary py-2 small mb-2">URLフィルターとKWフィルターはOR条件です。どちらか一方の入力が必須です。</div>
         <div class="mb-3">
           <label class="form-label fw-semibold">カラー</label>
           <div class="d-flex gap-2" id="segmentColorPicker">
