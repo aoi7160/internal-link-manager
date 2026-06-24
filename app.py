@@ -38,7 +38,7 @@ def create_article():
 @app.put("/api/articles/<int:article_id>")
 def update_article(article_id):
     data = request.json or {}
-    db.update_article(article_id, main_kw=data.get("main_kw"), title=data.get("title"))
+    db.update_article(article_id, main_kw=data.get("main_kw"), title=data.get("title"), tags=data.get("tags"))
     return jsonify({"ok": True})
 
 

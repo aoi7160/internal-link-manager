@@ -18,6 +18,23 @@ const SEGMENT_COLORS = ["#0d6efd", "#198754", "#fd7e14", "#6f42c1", "#dc3545"];
 let segments = [];          // [{id, name, urlFilter, color, active}]
 let segmentSelectedColor = SEGMENT_COLORS[0];
 
+// ─── Graph Tag Filter ────────────────────────
+let activeGraphTagFilter = null;
+
+function toggleGraphTagFilter(tag) {
+  activeGraphTagFilter = activeGraphTagFilter === tag ? null : tag;
+  renderTagFilterChips(); // チップのアクティブ状態更新
+  renderGraph();
+}
+
+function clearGraphFilters() {
+  document.getElementById("graphNodeSearch").value = "";
+  document.getElementById("graphMinInbound").value = "0";
+  activeGraphTagFilter = null;
+  renderTagFilterChips();
+  renderGraph();
+}
+
 // ─── Init ────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
   await checkSettings();
@@ -59,6 +76,7 @@ async function loadAll() {
   renderClustersTable();
   renderLinkSuggestions();
   populateSelects();
+  renderTagFilterChips();
 }
 
 // ─── Settings ────────────────────────────────
@@ -79,13 +97,56 @@ async function saveSettings() {
   toast("設定を保存しました", "success");
 }
 
+// ─── Tags ────────────────────────────────────
+let activeTagFilter = null; // クリック中のタグ名
+
+function parseTags(tagsStr) {
+  return (tagsStr || "").split(",").map(t => t.trim()).filter(Boolean);
+}
+
+function renderTagFilterChips() {
+  const allTags = [...new Set(articles.flatMap(a => parseTags(a.tags)))].sort((a, b) => a.localeCompare(b, "ja"));
+  const chips = document.getElementById("tagFilterChips");
+  if (!chips) return;
+  chips.innerHTML = allTags.map(tag => {
+    const active = activeTagFilter === tag;
+    return `<span class="badge rounded-pill ${active ? "bg-primary" : "bg-light text-dark border"}"
+      style="cursor:pointer;font-size:.75rem" onclick="toggleTagFilter('${esc(tag)}')">${esc(tag)}</span>`;
+  }).join("");
+
+  // グラフ用タグチップも更新
+  const gChips = document.getElementById("graphTagFilterChips");
+  if (gChips) {
+    gChips.innerHTML = allTags.map(tag => {
+      const active = activeGraphTagFilter === tag;
+      return `<span class="badge rounded-pill ${active ? "bg-primary" : "bg-light text-dark border"}"
+        style="cursor:pointer;font-size:.75rem" onclick="toggleGraphTagFilter('${esc(tag)}')">${esc(tag)}</span>`;
+    }).join("");
+  }
+}
+
+function toggleTagFilter(tag) {
+  activeTagFilter = activeTagFilter === tag ? null : tag;
+  renderTagFilterChips();
+  renderArticlesTable();
+}
+
+function tagBadgesHtml(tagsStr) {
+  return parseTags(tagsStr).map(t =>
+    `<span class="badge rounded-pill bg-secondary me-1" style="font-size:.7rem;cursor:pointer" onclick="toggleTagFilter('${esc(t)}')">${esc(t)}</span>`
+  ).join("");
+}
+
 // ─── Articles ────────────────────────────────
 function renderArticlesTable() {
   const q = document.getElementById("articleSearch").value.toLowerCase();
-  let rows = articles.filter(a =>
-    (a.main_kw || "").toLowerCase().includes(q) ||
-    a.url.toLowerCase().includes(q)
-  );
+  let rows = articles.filter(a => {
+    const matchQ = (a.main_kw || "").toLowerCase().includes(q) ||
+                   a.url.toLowerCase().includes(q) ||
+                   (a.tags || "").toLowerCase().includes(q);
+    const matchTag = !activeTagFilter || parseTags(a.tags).includes(activeTagFilter);
+    return matchQ && matchTag;
+  });
 
   rows.sort((a, b) => {
     const av = a[sortState.col] ?? "";
@@ -118,6 +179,7 @@ function renderArticlesTable() {
           <i class="bi bi-cloud-download"></i>
         </button>
       </td>
+      <td>${tagBadgesHtml(a.tags)}</td>
       <td class="text-center">
         <button class="btn btn-xs btn-outline-primary py-0 px-1" onclick="showArticleDetail(${a.id})" title="詳細">
           <i class="bi bi-eye"></i>
@@ -145,6 +207,7 @@ function openAddArticleModal() {
   document.getElementById("articleUrlInput").value = "";
   document.getElementById("articleKwInput").value = "";
   document.getElementById("articleTitleInput").value = "";
+  document.getElementById("articleTagsInput").value = "";
   new bootstrap.Modal(document.getElementById("addArticleModal")).show();
 }
 
@@ -156,6 +219,7 @@ function openEditArticle(id) {
   document.getElementById("articleUrlInput").value = a.url;
   document.getElementById("articleKwInput").value = a.main_kw || "";
   document.getElementById("articleTitleInput").value = a.title || "";
+  document.getElementById("articleTagsInput").value = a.tags || "";
   new bootstrap.Modal(document.getElementById("addArticleModal")).show();
 }
 
@@ -164,13 +228,14 @@ async function saveArticle() {
   const url    = document.getElementById("articleUrlInput").value.trim();
   const kw     = document.getElementById("articleKwInput").value.trim();
   const title  = document.getElementById("articleTitleInput").value.trim();
+  const tags   = document.getElementById("articleTagsInput").value.trim();
 
   if (!url) { toast("URLを入力してください", "danger"); return; }
 
   if (editId) {
-    await putJSON(`/api/articles/${editId}`, { main_kw: kw, title });
+    await putJSON(`/api/articles/${editId}`, { main_kw: kw, title, tags });
   } else {
-    await postJSON("/api/articles", { url, main_kw: kw, title });
+    await postJSON("/api/articles", { url, main_kw: kw, title, tags });
   }
 
   bootstrap.Modal.getInstance(document.getElementById("addArticleModal")).hide();
@@ -615,6 +680,8 @@ async function renderGraph() {
   const showLinks    = document.getElementById("showLinksToggle").checked;
   const showClusters = document.getElementById("showClustersToggle").checked;
   const hideIsolated = document.getElementById("isolatedToggle").checked;
+  const nodeSearchQ  = (document.getElementById("graphNodeSearch")?.value || "").toLowerCase();
+  const minInbound   = parseInt(document.getElementById("graphMinInbound")?.value || "0", 10) || 0;
 
   // Build connected node IDs
   const connectedIds = new Set();
@@ -635,6 +702,27 @@ async function renderGraph() {
     baseNodeList = baseNodeList.filter(n =>
       activeSegs.some(s => nodeMatchesSegment(s, n.url || "", n.label || ""))
     );
+  }
+
+  // グラフフィルター: KW/URL検索
+  if (nodeSearchQ) {
+    baseNodeList = baseNodeList.filter(n =>
+      (n.label || "").toLowerCase().includes(nodeSearchQ) ||
+      (n.url || "").toLowerCase().includes(nodeSearchQ)
+    );
+  }
+
+  // グラフフィルター: 被リンク数
+  if (minInbound > 0) {
+    baseNodeList = baseNodeList.filter(n => n.inbound >= minInbound);
+  }
+
+  // グラフフィルター: タグ（articlesグローバルデータから取得）
+  if (activeGraphTagFilter) {
+    const taggedIds = new Set(
+      articles.filter(a => parseTags(a.tags).includes(activeGraphTagFilter)).map(a => a.id)
+    );
+    baseNodeList = baseNodeList.filter(n => taggedIds.has(n.id));
   }
 
   const nodeList = baseNodeList;
