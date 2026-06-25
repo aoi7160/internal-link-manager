@@ -28,8 +28,11 @@ def suggest_article_links(title: str, body: str) -> dict:
     clusters = db.get_clusters()
     confirmed_clusters = [c for c in clusters if c.get("confirmed")]
 
+    # トークン削減：本文は先頭2000文字のみ、記事リストはid/kw/urlのみ
+    body_for_prompt = body[:2000] + ("…（省略）" if len(body) > 2000 else "")
+
     article_list = "\n".join(
-        f'- id={a["id"]}, title="{a.get("title") or "(タイトルなし)"}", kw="{a.get("main_kw") or "(未設定)"}", url="{a["url"]}"'
+        f'- id={a["id"]}, kw="{a.get("main_kw") or "(未設定)"}", url="{a["url"]}"'
         for a in articles
     )
 
@@ -43,8 +46,8 @@ def suggest_article_links(title: str, body: str) -> dict:
 ## 対象記事
 タイトル：{title}
 
-本文：
-{body}
+本文（先頭抜粋）：
+{body_for_prompt}
 
 ---
 
