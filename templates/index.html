@@ -46,6 +46,11 @@
         <i class="bi bi-stars"></i> トピッククラスター
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link" data-bs-toggle="tab" href="#tabLinkProposal">
+        <i class="bi bi-magic"></i> 内部リンク提案
+      </a>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -53,8 +58,9 @@
     <!-- ═══ TAB: 記事管理 ═══ -->
     <div class="tab-pane fade show active" id="tabArticles">
       <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        <div class="d-flex gap-2 align-items-center">
-          <input type="text" id="articleSearch" class="form-control form-control-sm" placeholder="KW・URLで絞り込み..." style="width:260px">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <input type="text" id="articleSearch" class="form-control form-control-sm" placeholder="KW・URL・タグで絞り込み..." style="width:260px">
+          <div id="tagFilterChips" class="d-flex gap-1 flex-wrap"></div>
           <span id="articleCount" class="text-muted small"></span>
         </div>
         <div class="d-flex gap-2">
@@ -76,6 +82,7 @@
               <th class="sortable text-center" data-col="inbound_count">被内部リンク <i class="bi bi-chevron-expand"></i></th>
               <th class="sortable text-center" data-col="outbound_count">発内部リンク <i class="bi bi-chevron-expand"></i></th>
               <th class="text-center">クロール</th>
+              <th>タグ</th>
               <th class="text-center">操作</th>
             </tr>
           </thead>
@@ -156,6 +163,7 @@
 
     <!-- ═══ TAB: グラフ ═══ -->
     <div class="tab-pane fade" id="tabGraph">
+      <!-- トグル＆再描画 -->
       <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="showLinksToggle" checked>
@@ -174,6 +182,42 @@
         </button>
         <span class="text-muted small ms-auto" id="graphStats"></span>
       </div>
+
+      <!-- グラフフィルターパネル -->
+      <div class="card mb-2">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="fw-semibold small"><i class="bi bi-funnel"></i> フィルター</span>
+            <input type="text" id="graphNodeSearch" class="form-control form-control-sm" placeholder="KW・URLで絞り込み..." style="width:220px" oninput="renderGraph()">
+            <div class="d-flex align-items-center gap-1">
+              <label class="form-label mb-0 small text-nowrap">被リンク ≥</label>
+              <input type="number" id="graphMinInbound" class="form-control form-control-sm" value="0" min="0" style="width:70px" oninput="renderGraph()">
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <label class="form-label mb-0 small text-nowrap">タグ：</label>
+              <div id="graphTagFilterChips" class="d-flex gap-1 flex-wrap"></div>
+            </div>
+            <button class="btn btn-sm btn-link text-muted p-0" onclick="clearGraphFilters()">リセット</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- セグメント管理パネル -->
+      <div class="card mb-2">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-semibold small"><i class="bi bi-layers"></i> セグメント</span>
+            <div id="segmentChips" class="d-flex gap-2 flex-wrap"></div>
+            <button class="btn btn-sm btn-outline-primary" id="addSegmentBtn" onclick="openAddSegmentModal()">
+              <i class="bi bi-plus"></i> 追加
+            </button>
+            <button class="btn btn-sm btn-link text-muted p-0 ms-1" onclick="clearSegmentFilter()" id="clearSegmentBtn" style="display:none">
+              全表示に戻す
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div id="graphContainer"></div>
       <div id="graphTooltip" class="graph-tooltip d-none"></div>
     </div>
@@ -222,6 +266,49 @@
       </div>
     </div>
 
+    <!-- ═══ TAB: 内部リンク提案 ═══ -->
+    <div class="tab-pane fade" id="tabLinkProposal">
+      <div class="row g-3">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body">
+              <h6 class="card-title fw-semibold mb-3"><i class="bi bi-magic"></i> 記事を入力して内部リンクを提案</h6>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">記事タイトル</label>
+                <input type="text" id="proposalTitle" class="form-control" placeholder="例：ECサイト構築完全ガイド 2026年版">
+              </div>
+              <div class="mb-2">
+                <label class="form-label fw-semibold">記事本文</label>
+                <textarea id="proposalBody" class="form-control" rows="12" placeholder="本文をここに貼り付けてください..." oninput="updateCharCount()"></textarea>
+              </div>
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <span class="text-muted small">文字数：<strong id="charCount">0</strong></span>
+                <span class="badge bg-secondary" id="targetRangeBadge">目標リンク数: 入力してください</span>
+              </div>
+              <button class="btn btn-primary" onclick="generateLinkProposals()" id="proposalBtn">
+                <i class="bi bi-magic"></i> 提案を生成
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12" id="proposalProgress" style="display:none">
+          <div class="alert alert-info d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm"></div>
+            <span>AIが内部リンクを分析中... しばらくお待ちください</span>
+          </div>
+        </div>
+
+        <div class="col-12" id="proposalResults" style="display:none">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <h6 class="mb-0 fw-semibold">提案結果</h6>
+            <span class="text-muted small" id="proposalSummary"></span>
+          </div>
+          <div id="proposalCards"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -245,6 +332,49 @@
   </div>
 </div>
 
+<!-- セグメント追加 -->
+<div class="modal fade" id="addSegmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">セグメント追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">セグメント名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="segmentNameInput" placeholder="例：EC構築系、集客系">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">URLフィルター（含む文字列）</label>
+          <input type="text" class="form-control" id="segmentUrlInput" placeholder="例：/ec-construction/">
+          <div class="form-text">URLにこの文字列が含まれる記事をセグメントに含めます</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">メインKWフィルター（含む文字列）</label>
+          <input type="text" class="form-control" id="segmentKwInput" placeholder="例：EC、D2C、SEO">
+          <div class="form-text">メインキーワードにこの文字列が含まれる記事をセグメントに含めます</div>
+        </div>
+        <div class="alert alert-secondary py-2 small mb-2">URLフィルターとKWフィルターはOR条件です。どちらか一方の入力が必須です。</div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">カラー</label>
+          <div class="d-flex gap-2" id="segmentColorPicker">
+            <button type="button" class="segment-color-btn active" data-color="#0d6efd" style="background:#0d6efd;width:28px;height:28px;border-radius:50%;border:3px solid #333"></button>
+            <button type="button" class="segment-color-btn" data-color="#198754" style="background:#198754;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#fd7e14" style="background:#fd7e14;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#6f42c1" style="background:#6f42c1;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+            <button type="button" class="segment-color-btn" data-color="#dc3545" style="background:#dc3545;width:28px;height:28px;border-radius:50%;border:2px solid transparent"></button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="saveSegment()">追加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 記事追加 -->
 <div class="modal fade" id="addArticleModal" tabindex="-1">
   <div class="modal-dialog">
@@ -263,6 +393,11 @@
         <div class="mb-3">
           <label class="form-label">タイトル（任意）</label>
           <input type="text" class="form-control" id="articleTitleInput">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">タグ（カンマ区切り）</label>
+          <input type="text" class="form-control" id="articleTagsInput" placeholder="例: EC構築, SEO, D2C">
+          <div class="form-text">複数タグはカンマで区切ってください</div>
         </div>
       </div>
       <div class="modal-footer">

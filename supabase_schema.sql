@@ -14,6 +14,7 @@ CREATE TABLE articles (
   url              TEXT UNIQUE NOT NULL,
   main_kw          TEXT,
   title            TEXT,
+  tags             TEXT DEFAULT '',
   crawled_at       TIMESTAMPTZ,
   link_juice_score FLOAT DEFAULT 0,
   status           TEXT DEFAULT 'active',
@@ -82,3 +83,7 @@ CREATE INDEX idx_links_to     ON links(to_article_id);
 CREATE INDEX idx_articles_status ON articles(status);
 CREATE INDEX idx_history_session ON article_score_history(session_id);
 CREATE INDEX idx_history_article ON article_score_history(article_id);
+
+-- ── Migration: tagsカラム追加（既存DBへの追加用）──────────────────────────────
+-- 既存のDBに追加する場合はこちらのSQLをSupabase SQL Editorで実行：
+-- ALTER TABLE articles ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '';

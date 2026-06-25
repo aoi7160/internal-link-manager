@@ -1,22 +1,8 @@
-import os
-import json
-import anthropic
 import database as db
-
-MODEL = "claude-opus-4-8"
+import ai_client
 
 
 def suggest_clusters(article_ids: list[int] | None = None) -> list[dict]:
-    """
-    Call Claude to suggest parent-child topic cluster relationships.
-    Returns a list of {parent_id, child_id, reason} dicts.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY が設定されていません")
-
-    client = anthropic.Anthropic(api_key=api_key)
-
     articles = db.get_articles()
     if article_ids:
         articles = [a for a in articles if a["id"] in article_ids]
@@ -47,23 +33,8 @@ JSON配列で返してください。各要素は以下の形式：
 
 JSONのみ返し、説明文は不要です。"""
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    suggestions = ai_client.call_ai_json(prompt, max_tokens=4096)
 
-    raw = message.content[0].text.strip()
-    # Strip markdown code fences if present
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    suggestions = json.loads(raw)
-
-    # Persist to DB as unconfirmed AI suggestions
     article_id_set = {a["id"] for a in articles}
     saved = []
     for s in suggestions:

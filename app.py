@@ -8,6 +8,7 @@ import database as db
 import crawler
 import ai_cluster
 import ai_links
+import ai_article_link_suggester
 
 app = Flask(__name__)
 CORS(app)
@@ -37,7 +38,7 @@ def create_article():
 @app.put("/api/articles/<int:article_id>")
 def update_article(article_id):
     data = request.json or {}
-    db.update_article(article_id, main_kw=data.get("main_kw"), title=data.get("title"))
+    db.update_article(article_id, main_kw=data.get("main_kw"), title=data.get("title"), tags=data.get("tags"))
     return jsonify({"ok": True})
 
 
@@ -164,6 +165,22 @@ def ai_suggest():
         return jsonify({"error": str(e)}), 500
 
 
+@app.post("/api/ai/suggest-article-links")
+def ai_suggest_article_links():
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    body = data.get("body", "").strip()
+    if not body:
+        return jsonify({"error": "body is required"}), 400
+    try:
+        result = ai_article_link_suggester.suggest_article_links(title, body)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.post("/api/ai/suggest-links")
 def ai_suggest_links():
     data = request.json or {}
@@ -210,8 +227,18 @@ def health():
 
 @app.get("/api/settings")
 def get_settings():
+    provider = os.environ.get("AI_PROVIDER", "claude").lower()
+    if provider == "groq":
+        ai_key_set = bool(os.environ.get("GROQ_API_KEY"))
+    elif provider == "openrouter":
+        ai_key_set = bool(os.environ.get("OPENROUTER_API_KEY"))
+    elif provider == "gemini":
+        ai_key_set = bool(os.environ.get("GOOGLE_API_KEY"))
+    else:
+        ai_key_set = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return jsonify({
-        "anthropic_api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "anthropic_api_key_set": ai_key_set,
+        "ai_provider": provider,
     })
 
 

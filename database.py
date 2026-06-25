@@ -45,7 +45,7 @@ def normalize_url(url: str) -> str:
 
 # ── Articles ──────────────────────────────────────────────────────────────────
 
-def upsert_article(url: str, main_kw: str = None, title: str = None, status: str = "active") -> int:
+def upsert_article(url: str, main_kw: str = None, title: str = None, status: str = "active", tags: str = None) -> int:
     url = normalize_url(url)
     client = _client or get_client()
     payload = {"url": url}
@@ -55,6 +55,8 @@ def upsert_article(url: str, main_kw: str = None, title: str = None, status: str
         payload["title"] = title
     if status is not None:
         payload["status"] = status
+    if tags is not None:
+        payload["tags"] = tags
     res = client.table("articles").upsert(payload, on_conflict="url").execute()
     return res.data[0]["id"]
 
@@ -84,7 +86,7 @@ def get_article(article_id: int):
     return res.data[0] if res.data else None
 
 
-def update_article(article_id: int, main_kw: str = None, title: str = None, status: str = None):
+def update_article(article_id: int, main_kw: str = None, title: str = None, status: str = None, tags: str = None):
     client = _client or get_client()
     payload = {}
     if main_kw is not None:
@@ -93,6 +95,8 @@ def update_article(article_id: int, main_kw: str = None, title: str = None, stat
         payload["title"] = title
     if status is not None:
         payload["status"] = status
+    if tags is not None:
+        payload["tags"] = tags
     if payload:
         client.table("articles").update(payload).eq("id", article_id).execute()
 
