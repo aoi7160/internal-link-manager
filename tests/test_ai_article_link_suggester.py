@@ -147,8 +147,18 @@ def test_suggest_article_links_no_articles_returns_empty():
 
 
 def test_suggest_article_links_no_api_key_raises():
-    with patch.dict("os.environ", {}, clear=True):
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("ai_article_link_suggester.db.get_articles", return_value=SAMPLE_ARTICLES), \
+         patch("ai_article_link_suggester.db.get_clusters", return_value=SAMPLE_CLUSTERS):
         with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+            suggester.suggest_article_links("タイトル", "本文")
+
+
+def test_suggest_article_links_gemini_no_api_key_raises():
+    with patch.dict("os.environ", {"AI_PROVIDER": "gemini"}, clear=True), \
+         patch("ai_article_link_suggester.db.get_articles", return_value=SAMPLE_ARTICLES), \
+         patch("ai_article_link_suggester.db.get_clusters", return_value=SAMPLE_CLUSTERS):
+        with pytest.raises(ValueError, match="GOOGLE_API_KEY"):
             suggester.suggest_article_links("タイトル", "本文")
 
 

@@ -20,11 +20,11 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
     provider = os.environ.get("AI_PROVIDER", "claude").lower()
 
     if provider == "gemini":
-        from google import genai
-        from google.genai import types
         api_key = os.environ.get("GOOGLE_API_KEY", "")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY が設定されていません")
+        from google import genai
+        from google.genai import types
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model="gemini-2.0-flash-lite",
