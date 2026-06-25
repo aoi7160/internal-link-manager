@@ -1,7 +1,8 @@
 """
 AI provider abstraction.
-- AI_PROVIDER=gemini  →  Google Gemini (Render / 無料運用)
-- それ以外（デフォルト） →  Anthropic Claude (ローカル開発)
+- AI_PROVIDER=openrouter  →  OpenRouter（無料モデル / Render用）
+- AI_PROVIDER=gemini      →  Google Gemini
+- それ以外（デフォルト）  →  Anthropic Claude（ローカル開発）
 """
 import os
 import json
@@ -19,7 +20,29 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
     """プロンプトを送り、テキスト応答を返す。"""
     provider = os.environ.get("AI_PROVIDER", "claude").lower()
 
-    if provider == "gemini":
+    if provider == "openrouter":
+        import requests
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY が設定されていません")
+        model = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free")
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+
+    elif provider == "gemini":
         api_key = os.environ.get("GOOGLE_API_KEY", "")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY が設定されていません")
