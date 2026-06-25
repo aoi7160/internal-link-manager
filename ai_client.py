@@ -31,6 +31,7 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
+                "HTTP-Referer": "https://internal-link-manager.onrender.com",
             },
             json={
                 "model": model,
@@ -39,7 +40,8 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
             },
             timeout=120,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            raise ValueError(f"OpenRouter error {resp.status_code}: {resp.text}")
         return resp.json()["choices"][0]["message"]["content"].strip()
 
     elif provider == "gemini":
