@@ -20,7 +20,30 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
     """プロンプトを送り、テキスト応答を返す。"""
     provider = os.environ.get("AI_PROVIDER", "claude").lower()
 
-    if provider == "openrouter":
+    if provider == "groq":
+        import requests
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY が設定されていません")
+        model = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=120,
+        )
+        if not resp.ok:
+            raise ValueError(f"Groq error {resp.status_code}: {resp.text}")
+        return resp.json()["choices"][0]["message"]["content"].strip()
+
+    elif provider == "openrouter":
         import requests
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:

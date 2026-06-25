@@ -228,7 +228,9 @@ def health():
 @app.get("/api/settings")
 def get_settings():
     provider = os.environ.get("AI_PROVIDER", "claude").lower()
-    if provider == "openrouter":
+    if provider == "groq":
+        ai_key_set = bool(os.environ.get("GROQ_API_KEY"))
+    elif provider == "openrouter":
         ai_key_set = bool(os.environ.get("OPENROUTER_API_KEY"))
     elif provider == "gemini":
         ai_key_set = bool(os.environ.get("GOOGLE_API_KEY"))
