@@ -25,7 +25,7 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY が設定されていません")
-        model = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.0-flash-lite-001")
+        model = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
         resp = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
