@@ -27,7 +27,7 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
             raise ValueError("GOOGLE_API_KEY が設定されていません")
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
