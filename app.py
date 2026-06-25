@@ -227,8 +227,14 @@ def health():
 
 @app.get("/api/settings")
 def get_settings():
+    provider = os.environ.get("AI_PROVIDER", "claude").lower()
+    if provider == "gemini":
+        ai_key_set = bool(os.environ.get("GOOGLE_API_KEY"))
+    else:
+        ai_key_set = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return jsonify({
-        "anthropic_api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "anthropic_api_key_set": ai_key_set,
+        "ai_provider": provider,
     })
 
 
