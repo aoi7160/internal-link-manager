@@ -88,7 +88,7 @@ def call_ai(prompt: str, max_tokens: int = 8192) -> str:
             raise ValueError("ANTHROPIC_API_KEY が設定されていません")
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
