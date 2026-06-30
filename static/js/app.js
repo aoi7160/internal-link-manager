@@ -68,7 +68,7 @@ async function saveSettings() {
   const key = document.getElementById("apiKeyInput").value.trim();
   await postJSON("/api/settings", { anthropic_api_key: key });
   await checkSettings();
-  bootstrap.Modal.getInstance(document.getElementById("settingsModal")).hide();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("settingsModal")).hide();
   toast("設定を保存しました", "success");
 }
 
@@ -138,7 +138,7 @@ function openAddArticleModal() {
   document.getElementById("articleUrlInput").value = "";
   document.getElementById("articleKwInput").value = "";
   document.getElementById("articleTitleInput").value = "";
-  new bootstrap.Modal(document.getElementById("addArticleModal")).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addArticleModal")).show();
 }
 
 function openEditArticle(id) {
@@ -149,7 +149,7 @@ function openEditArticle(id) {
   document.getElementById("articleUrlInput").value = a.url;
   document.getElementById("articleKwInput").value = a.main_kw || "";
   document.getElementById("articleTitleInput").value = a.title || "";
-  new bootstrap.Modal(document.getElementById("addArticleModal")).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addArticleModal")).show();
 }
 
 async function saveArticle() {
@@ -166,7 +166,7 @@ async function saveArticle() {
     await postJSON("/api/articles", { url, main_kw: kw, title });
   }
 
-  bootstrap.Modal.getInstance(document.getElementById("addArticleModal")).hide();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addArticleModal")).hide();
   toast("保存しました", "success");
   await loadAll();
 }
@@ -265,7 +265,7 @@ async function showArticleDetail(id) {
       ${makeList(detail.outbound, "out")}
     </div>`;
 
-  new bootstrap.Offcanvas(document.getElementById("articleDrawer")).show();
+  bootstrap.Offcanvas.getOrCreateInstance(document.getElementById("articleDrawer")).show();
 }
 
 // ─── AI Link Suggestions ─────────────────────
@@ -360,7 +360,7 @@ function renderLinksTable() {
 }
 
 function openAddLinkModal() {
-  new bootstrap.Modal(document.getElementById("addLinkModal")).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addLinkModal")).show();
 }
 
 async function saveLink() {
@@ -370,7 +370,7 @@ async function saveLink() {
   if (!from || !to) { toast("発リンク元とリンク先を選択してください", "danger"); return; }
   if (from === to)  { toast("同じ記事にはリンクできません", "danger"); return; }
   await postJSON("/api/links", { from_article_id: from, to_article_id: to, anchor_text: anchor });
-  bootstrap.Modal.getInstance(document.getElementById("addLinkModal")).hide();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addLinkModal")).hide();
   toast("リンクを追加しました", "success");
   await loadAll();
 }
@@ -436,7 +436,7 @@ async function runAISuggest() {
 }
 
 function openAddClusterModal() {
-  new bootstrap.Modal(document.getElementById("addClusterModal")).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addClusterModal")).show();
 }
 
 async function saveCluster() {
@@ -446,7 +446,7 @@ async function saveCluster() {
   if (!parent || !child) { toast("親記事と子記事を選択してください", "danger"); return; }
   if (parent === child)  { toast("同じ記事は選択できません", "danger"); return; }
   await postJSON("/api/clusters", { parent_article_id: parent, child_article_id: child, reason });
-  bootstrap.Modal.getInstance(document.getElementById("addClusterModal")).hide();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("addClusterModal")).hide();
   toast("追加しました", "success");
   await loadAll();
 }
